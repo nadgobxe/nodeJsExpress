@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Login</title>
+</head>
+<body>
+  <h1>Login</h1>
+
+  <form id="loginForm">
+    <input type="email" id="email" placeholder="Email" required /><br><br>
+    <input type="password" id="password" placeholder="Password" required /><br><br>
+    <button type="submit">Login</button>
+  </form>
+
+  <p id="msg"></p>
+
+  <script>
+    const form = document.getElementById("loginForm");
+
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+
+      const email = document.getElementById("email").value;
+      const password = document.getElementById("password").value;
+
+      const response = await fetch("/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
+      });
+
+      const data = await response.json();
+
+      if (data.refreshToken) {
+        localStorage.setItem("refreshToken", data.refreshToken);
+      }
+
+      if (data.token) {
+        localStorage.setItem("token", data.token);
+
+        document.getElementById("msg").innerText = "Login successful!";
+
+        setTimeout(() => {
+          window.location.href = "/profile";
+        }, 200);
+
+      } else {
+        document.getElementById("msg").innerText = data.error || data.msg;
+      }
+    });
+
+    async function fetchProtected() {
+      let token = localStorage.getItem("token");
+
+      let response = await fetch("/api/profile", {
+        headers: { "Authorization": "Bearer " + token }
+      });
+
+      if (response.status === 401) {
+        await refreshAccessToken();
+        return fetchProtected();
+      }
+
+      return await response.json();
+    }
+
+    async function refreshAccessToken() {
+      const refreshToken = localStorage.getItem("refreshToken");
+
+      const response = await fetch("/refresh", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ refreshToken })
+      });
+
+      const data = await response.json();
+
+      if (data.token) {
+        localStorage.setItem("token", data.token);
+      } else {
+        localStorage.removeItem("token");
+        localStorage.removeItem("refreshToken");
+        window.location.href = "/login";
+      }
+    }
+  </script>
+
+</body>
+</html>

@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Your Profile</title>
+</head>
+<body>
+
+  <h1>Your Profile</h1>
+  <p id="info">Loading...</p>
+
+  <button id="logoutBtn">Logout</button>
+
+  <script>
+
+    // ========== CALL PROTECTED ROUTE ==========
+    async function loadProfile() {
+      let token = localStorage.getItem("token");
+
+      const response = await fetch("/api/profile", {
+        headers: { "Authorization": "Bearer " + token }
+      });
+
+      // If token expired → refresh it
+      if (response.status === 401) {
+        const refreshed = await refreshAccessToken();
+        if (refreshed) {
+          return loadProfile(); // try again with new token
+        } else {
+          document.getElementById("info").innerText =
+            "Session expired. Please login again.";
+          return;
+        }
+      }
+
+      const data = await response.json();
+
+      document.getElementById("info").innerHTML = `
+        <strong>Message:</strong> ${data.msg}<br><br>
+        <strong>User ID:</strong> ${data.userId}
+      `;
+    }
+
+    // ========== REFRESH TOKEN ==========
+    async function refreshAccessToken() {
+      const refreshToken = localStorage.getItem("refreshToken");
+
+      if (!refreshToken) return false;
+
+      const response = await fetch("/refresh", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ refreshToken })
+      });
+
+      const data = await response.json();
+
+      if (data.token) {
+        localStorage.setItem("token", data.token);
+        return true;
+      }
+
+      return false;
+    }
+
+    // ========== LOGOUT ==========
+    document.getElementById("logoutBtn").addEventListener("click", () => {
+      localStorage.removeItem("token");
+      localStorage.removeItem("refreshToken");
+      window.location.href = "/login";
+    });
+
+    loadProfile();
+  </script>
+
+</body>
+</html>
